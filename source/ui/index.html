@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>RepoSync — Manual Folder Mirror</title>
+<style>
+:root { color-scheme: dark; --bg:#090e17; --card:#151e2d; --surface:#0d1726; --line:#344b69; --text:#ebf2ff; --sub:#95b0d5; --muted:#7c98bc; --cyan:#38d1ff; --violet:#bda9ff; --lime:#baff70; }
+* {box-sizing:border-box;} html,body{margin:0;width:100%;height:100%;} body{font-family:Inter,'Segoe UI Variable','Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--text);font-size:15px;overflow:hidden;}
+button,input,textarea,select{font:inherit;} button{cursor:pointer;color:#dceaff;} button:disabled{opacity:.4;cursor:not-allowed;} button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid #32cdff;outline-offset:2px}
+.window{height:100vh;min-height:0;position:relative;display:flex;flex-direction:column;background:radial-gradient(ellipse 60% 42% at 74% 10%,rgba(29,63,108,.31),transparent 83%),linear-gradient(150deg,#0b1018 0%,#0c1421 51%,#080d15 100%);border:1px solid #30435c;border-radius:14px;overflow:hidden;box-shadow:inset 0 1px rgba(255,255,255,.08);}
+.titlebar{height:45px;min-height:45px;display:flex;align-items:center;padding:0 24px;gap:11px;background:linear-gradient(110deg,#131e2d,#172235 53%,#101925);border-bottom:1px solid #233850;font-size:15px;font-weight:500;letter-spacing:.1px;}
+.titlebar.pywebview-drag-region{user-select:none;} .titlebar .caption{flex:1;pointer-events:none;} .window-buttons{display:flex;align-items:stretch;height:100%;gap:1px;margin-right:-16px} .window-buttons button{border:0;background:transparent;color:#bed3ea;min-width:43px;height:100%;font-size:18px;font-weight:400;padding:0;line-height:1;cursor:pointer;} .window-buttons button:hover{background:rgba(84,145,200,.20);color:white} .window-buttons button#win-close:hover{background:#b73244;color:white} .bolt{color:#39cfff;font-size:22px;font-weight:bold;filter:drop-shadow(0 0 5px #2185e8)}
+.content{padding:22px 30px 14px;min-height:0;overflow-y:auto;overflow-x:hidden;scrollbar-color:#365a7a #101927;display:flex;flex:1;flex-direction:column;gap:13px;}
+.brand{height:80px;min-height:80px;display:flex;align-items:center;justify-content:space-between;position:relative;padding:0 9px 5px;}
+.brand:before{position:absolute;content:"";pointer-events:none;top:-8px;right:90px;width:230px;height:90px;opacity:.36;background:repeating-linear-gradient(135deg,transparent 0 33px,rgba(0,184,255,.25) 34px 39px,transparent 40px 53px,rgba(198,64,255,.28) 54px 58px,transparent 59px 95px);mask-image:linear-gradient(to right,transparent,black);}
+.brand-left{display:flex;align-items:center;gap:20px;min-width:0}.appicon{width:65px;height:65px;border-radius:17px;padding:5px;background:linear-gradient(160deg,#1c2c45,#0c192a);border:1px solid #3a5579;box-shadow:0 0 17px rgba(42,166,255,.08),inset 0 1px 1px rgba(255,255,255,.08);object-fit:contain;}
+.name{font-size:36px;font-weight:750;letter-spacing:-1.6px;line-height:1.1;margin:0}.name span{color:var(--cyan);text-shadow:0 0 19px rgba(20,179,255,.15)}
+.brand-name-row{display:flex;align-items:center;gap:13px;min-width:0}.version-chip{font:600 12px/1.4 "Cascadia Code",Consolas,monospace;color:#b6d4f1;border:1px solid #3b5676;background:linear-gradient(135deg,#16263c,#122035);border-radius:7px;padding:3px 8px;letter-spacing:.25px;white-space:nowrap;box-shadow:inset 0 1px rgba(255,255,255,.07)}
+.subtitle{color:var(--sub);font-size:15px;margin:9px 0 0;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+.state{display:flex;gap:10px;align-items:center;font-size:13px;padding:9px 16px;border-radius:22px;border:1px solid #31445f;background:rgba(15,25,40,.62);box-shadow:inset 0 1px rgba(255,255,255,.045);white-space:nowrap;}.state .dot{width:10px;height:10px;border-radius:100%;background:var(--lime);box-shadow:0 0 8px #acff6f45;}
+.top{display:grid;grid-template-columns:269px minmax(0,1fr);gap:14px;min-height:0;flex:0 0 337px;}
+.card{background:linear-gradient(150deg,rgba(25,37,56,.93),rgba(17,26,40,.96));border:1px solid #354864;border-radius:15px;box-shadow:inset 0 1px rgba(255,255,255,.047),0 8px 24px rgba(0,0,0,.14);position:relative;min-width:0;}
+.sidebar{display:flex;flex-direction:column;padding:16px 11px 12px;min-height:0;} .sectiontitle{display:flex;align-items:center;gap:12px;font-weight:630;font-size:16px;line-height:1.35;} .sectiontitle svg{width:24px;height:24px;flex:none;color:var(--cyan);filter:drop-shadow(0 0 6px #18a6ea40)}
+.sidebar .sectiontitle{margin:0 10px 13px}.list{border:1px solid #233650;border-radius:11px;background:rgba(6,13,24,.46);flex:1;overflow-y:auto;padding:7px 0;min-height:0}
+.profile{display:flex;width:calc(100% - 0px);align-items:center;gap:12px;text-align:left;padding:11px 17px;margin:2px 0;min-height:51px;background:transparent;border:1px solid transparent;border-radius:9px;color:#d7e7fd;transition:background .16s,border .16s,box-shadow .16s;position:relative}.profile:hover{background:linear-gradient(130deg,#172f46a0,#17263aa0);border-color:#2c5373;}.profile.active{color:#b9e9ff;background:linear-gradient(125deg,#153a5b 0%,#215375 70%,#14415d 100%);border-color:#37caff;box-shadow:0 0 17px rgba(21,177,255,.29),inset 0 1px rgba(135,229,255,.17),inset 0 -1px rgba(22,153,240,.18)}.profile.active:before{position:absolute;content:"";left:-1px;top:0;bottom:0;width:4px;background:#38d2ff;box-shadow:1px 0 12px #38d2ffc9;border-radius:3px;}.profile svg{width:25px;height:25px;color:#98b8e2}.profile.active svg{color:#42d3ff;filter:drop-shadow(0 0 5px #34beff8c)}
+.outlined{border:1px solid #395273;border-radius:9px;background:linear-gradient(#1c2c43,#152236);box-shadow:inset 0 1px rgba(255,255,255,.05);height:42px;padding:0 14px;white-space:nowrap;transition:border-color .15s,background .15s,box-shadow .15s;}.outlined:hover{border-color:#4da5df;box-shadow:0 0 13px rgba(27,174,255,.12),inset 0 1px rgba(255,255,255,.06)}
+.add{margin-top:10px;flex:none;font-size:14px;}
+.mapping{padding:17px 22px 16px;display:flex;flex-direction:column;}.mapping .sectiontitle{margin-bottom:3px}.helper{font-size:13px;color:var(--sub);margin:0 0 14px 37px}
+.formgrid{display:grid;grid-template-columns:125px minmax(0,1fr) 132px;gap:10px 10px;align-items:center;margin-top:1px;}.formgrid label{font-size:15px;color:#ebf0ff}.formgrid .input{height:42px;width:100%;background:linear-gradient(#0e1929,#0b1522);color:#e6edfa;border:1px solid #3d5676;border-radius:8px;padding:0 14px;box-shadow:inset 0 2px 5px #050a154d}.formgrid .input:focus{border-color:#36c5ff}.formgrid .browse{height:42px;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 8px}.browse svg{width:20px;height:20px;color:#9bbdf0}.preset-dropdown{position:relative;width:min(242px,100%);z-index:11}.preset-trigger{display:flex;align-items:center;justify-content:space-between;text-align:left;cursor:pointer;font-size:15px}.preset-trigger[aria-expanded="true"]{border-color:#38d1ff;box-shadow:0 0 14px rgba(20,178,255,.22),inset 0 2px 5px rgba(0,0,0,.3)}.preset-chevron{font-size:22px;color:#b9d9f7;line-height:1}.preset-menu{position:absolute;top:calc(100% + 6px);left:0;width:285px;max-width:calc(100vw - 60px);padding:5px;border:1px solid #3c91bf;border-radius:10px;background:linear-gradient(150deg,#1b304b,#101b2d);box-shadow:0 12px 27px #010711e8,0 0 13px #28bbff30;z-index:40}.preset-menu[hidden]{display:none}.preset-option{display:flex;flex-direction:column;text-align:left;gap:2px;width:100%;border:none;border-radius:7px;padding:11px 12px;color:#dfeafa;background:transparent}.preset-option strong{font-weight:600;font-size:14px}.preset-option small{font-size:11px;color:#91add0}.preset-option:hover,.preset-option:focus-visible,.preset-option[aria-selected="true"]{background:linear-gradient(120deg,#204967,#1a3855);color:#bcecff}.preset-option[aria-selected="true"]{box-shadow:inset 3px 0 #36cbff}.save{align-self:flex-start;margin:12px 0 0 135px;height:42px;display:flex;align-items:center;gap:9px}.save svg{width:17px;height:17px;color:var(--violet)}
+.filters{flex:0 0 188px;padding:14px 18px;min-height:0;}.filters .sectiontitle{font-size:16px;gap:9px}.filters .sectiontitle svg{color:var(--violet)}.muted-italic{color:var(--sub);font-weight:400;font-size:13px;font-style:italic}.filtergrid{display:grid;grid-template-columns:1.15fr .78fr;gap:22px;margin-top:12px}.field-title{font-size:15px;margin-bottom:6px}.field-help{font-size:13px;color:var(--muted);margin:0 0 8px}.textinput{height:69px;width:100%;resize:none;background:linear-gradient(#0c1726,#0d1725);color:#e8efff;border:1px solid #3a5272;border-radius:8px;padding:10px 13px;line-height:1.4;box-shadow:inset 0 2px 5px #040c1457}.textinput:focus{border-color:var(--cyan)}
+.field-title.with-info{display:flex;align-items:center;gap:7px}.info-wrap{display:inline-flex;align-items:center;position:relative;z-index:5}.info-button{width:18px;height:18px;border:1px solid #6188ae;border-radius:50%;background:#142640;color:#a7d8ff;font:700 12px/16px 'Segoe UI',Arial,sans-serif;text-align:center;padding:0;cursor:help;box-shadow:0 0 5px rgba(51,178,246,.12)}.info-button:hover,.info-button:focus-visible{color:#ecfbff;background:#1c4563;border-color:#45d3ff;box-shadow:0 0 12px #29bbff6b}.info-tip{display:none;position:absolute;bottom:calc(100% + 9px);right:-10px;width:300px;max-width:min(300px,80vw);background:linear-gradient(155deg,#182d48,#111c2d);border:1px solid #4b85ab;border-radius:9px;padding:11px 13px;box-shadow:0 11px 28px #010710dd,0 0 15px #27bdff24;color:#d7e9ff;font-size:12px;font-weight:400;line-height:1.45;text-align:left;white-space:normal;pointer-events:none;z-index:20}.info-wrap:hover .info-tip,.info-wrap:focus-within .info-tip{display:block}.info-tip strong{color:#abddff}.info-tip code{font:12px Consolas,monospace;color:#c9ff93}.info-wrap.left-tip .info-tip{right:auto;left:-10px}.info-tip:after{content:'';position:absolute;top:100%;right:13px;border:7px solid transparent;border-top-color:#4b85ab}.info-wrap.left-tip .info-tip:after{right:auto;left:13px}
+.actions{flex:0 0 56px;display:flex;align-items:center;gap:13px}.action{height:46px;display:flex;gap:10px;align-items:center;justify-content:center;font-size:14px;padding:0 18px}.action svg{width:19px;height:19px;color:#a1baf4}.action.sync{background:linear-gradient(155deg,#ceff9a,#b7fc66);color:#091911;border:1px solid #caff91;border-radius:9px;box-shadow:0 5px 21px rgba(172,254,97,.13),inset 0 1px rgba(255,255,255,.25);font-weight:700;min-width:193px}.action.sync svg{color:#091911}.action.sync:hover{background:linear-gradient(#dbffb3,#c6ff85);box-shadow:0 0 19px #baff7066}.action:not(.sync):hover svg{color:#61d8ff}
+.results{flex:1;min-height:170px;display:flex;flex-direction:column;padding:10px}.results-head{display:flex;align-items:center;justify-content:space-between;height:41px;padding:0 6px 8px}.resultstatus{display:flex;gap:12px;align-items:center;font-weight:620;font-size:15px}.resultstatus svg{color:#a4b8f8;width:21px;height:21px}.utilities{display:flex;gap:8px}.square{height:32px;width:33px;display:flex;align-items:center;justify-content:center;padding:0}.square svg{width:17px;height:17px}
+.code-area{display:flex;flex:1;min-height:0;border-radius:10px;border:1px solid #2c425f;background:#0b1422;overflow:auto;box-shadow:inset 0 2px 9px #03070c86}.linenums{padding:12px 12px 12px 15px;min-width:53px;color:#607896;background:linear-gradient(90deg,#0d1b2c,#0a1423);border-right:1px solid #20314b;text-align:right;line-height:1.5;font:13px/1.5 'Cascadia Code',Consolas,monospace;white-space:pre;user-select:none}.code{font:13px/1.5 'Cascadia Code',Consolas,monospace;margin:0;padding:12px 12px;color:#def0ff;white-space:pre;flex:1;min-width:max-content;tab-size:2}.code .key{color:#75dbff}.code .str{color:#ff9c83}.code .bool{color:#c5a4ff}.code .num{color:#c6ff93}
+.footnote{font-size:11px;color:#7893b8;opacity:.7;display:none}
+@media(max-height:930px){.brand{height:64px;min-height:64px}.top{flex-basis:303px}.mapping{padding:12px 16px}.formgrid{gap:7px}.filters{flex-basis:169px;padding:10px 14px}.filtergrid{margin-top:6px}.textinput{height:57px}.content{gap:8px;padding:14px 20px}}
+@media(max-width:1100px){.top{grid-template-columns:235px minmax(0,1fr)}.formgrid{grid-template-columns:90px minmax(0,1fr) 100px}.formgrid .browse{font-size:12px}.save{margin-left:100px}.filtergrid{gap:12px}.content{padding-left:15px;padding-right:15px}.subtitle{max-width:650px}}
+
+/* Frameless WinForms does not resize from its edges automatically. The native
+   bridge maps these 8 invisible hit zones to Windows caption hit-test codes. */
+.resize-edge{position:absolute;z-index:60;pointer-events:auto;background:transparent;touch-action:none}
+.resize-edge.north{top:0;left:14px;right:14px;height:7px;cursor:ns-resize}
+.resize-edge.south{bottom:0;left:14px;right:14px;height:7px;cursor:ns-resize}
+.resize-edge.west{left:0;top:14px;bottom:14px;width:7px;cursor:ew-resize}
+.resize-edge.east{right:0;top:14px;bottom:14px;width:7px;cursor:ew-resize}
+.resize-edge.northwest{top:0;left:0;width:15px;height:15px;cursor:nwse-resize}
+.resize-edge.northeast{top:0;right:0;width:15px;height:15px;cursor:nesw-resize}
+.resize-edge.southwest{bottom:0;left:0;width:15px;height:15px;cursor:nesw-resize}
+.resize-edge.southeast{bottom:0;right:0;width:15px;height:15px;cursor:nwse-resize}
+.window.is-maximized{border-radius:0}.window.is-maximized .resize-edge{pointer-events:none}
+@media(max-height:960px){.content{flex:1;min-height:0}.top{flex-shrink:0}.filters{flex-shrink:0}.actions{flex-shrink:0}.results{flex-shrink:0;height:198px;flex-grow:0}.brand{flex-shrink:0}}
+@media(max-width:1100px){.content{padding:14px 18px}.top{grid-template-columns:230px minmax(0,1fr)}.formgrid{grid-template-columns:91px minmax(0,1fr) 110px}.save{margin-left:101px}.mapping{padding:15px}.subtitle{font-size:13px}.brand-name-row .name{font-size:31px}}
+</style></head>
+<body>
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg"><symbol id="folder" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M3 19V5a1 1 0 0 1 1-1h5l2.5 3H20a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Z"/></symbol><symbol id="sync-glyph" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 7a8 8 0 0 0-14-1l-2 3m0 0V4m0 5h5M4 17a8 8 0 0 0 14 1l2-3m0 0v5m0-5h-5"/></symbol><symbol id="eye" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/></symbol><symbol id="check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path fill="none" stroke="currentColor" stroke-width="2" d="m7 12 3 3 7-7"/></symbol><symbol id="copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M16 6V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h1" fill="none" stroke="currentColor" stroke-width="1.7"/></symbol></svg>
+<div class="window">
+ <div class="titlebar pywebview-drag-region" id="titlebar"><span class="bolt">ϟ</span><span class="caption">RepoSync — Manual Folder Mirror</span><div class="window-buttons"><button id="win-min" aria-label="Minimize" title="Minimize">−</button><button id="win-max" aria-label="Maximize" title="Maximize">□</button><button id="win-close" aria-label="Close" title="Close">×</button></div></div>
+ <main class="content">
+  <header class="brand"><div class="brand-left"><img id="appicon" class="appicon" alt="RepoSync" src="APP_ICON_DATA_URI"><div><div class="brand-name-row"><h1 class="name">Repo<span>Sync</span></h1><span id="app-version" class="version-chip" title="Installed RepoSync version">v0.2.4</span></div><p class="subtitle">Mirror any local folder into another local folder. Google Drive Desktop handles cloud uploads.</p></div></div><div class="state"><span class="dot"></span><span id="ready">Connecting</span></div></header>
+  <div class="top"><aside class="sidebar card"><div class="sectiontitle"><svg><use href="#folder"/></svg>Saved profiles</div><div class="list" id="profiles"></div><button class="outlined add" id="new">＋&nbsp; New profile</button></aside>
+   <section class="mapping card"><div class="sectiontitle"><svg><use href="#folder"/></svg>Folder mapping</div><p class="helper">Select source and destination folders for this profile.</p><div class="formgrid">
+   <label for="profile">Profile</label><input class="input" id="profile" autocomplete="off"><span></span>
+   <label for="source">Source</label><input class="input" id="source" autocomplete="off"><button class="outlined browse" id="browse-source"><svg><use href="#folder"/></svg>Browse...</button>
+   <label for="destination">Destination</label><input class="input" id="destination" autocomplete="off"><button class="outlined browse" id="browse-destination"><svg><use href="#folder"/></svg>Browse...</button>
+   <label id="preset-caption" for="preset-trigger">Preset</label><div class="preset-dropdown" id="preset-box"><input type="hidden" id="preset" value="review"><button type="button" id="preset-trigger" class="preset-trigger input" role="combobox" aria-haspopup="listbox" aria-controls="preset-menu" aria-expanded="false" aria-labelledby="preset-caption preset-selected"><span id="preset-selected">review</span><span class="preset-chevron" aria-hidden="true">⌄</span></button><div id="preset-menu" class="preset-menu" role="listbox" aria-label="Mirror preset" hidden><button type="button" class="preset-option" role="option" id="preset-review" data-value="review" aria-selected="true"><strong>review</strong><small>Code, documents and eligible media</small></button><button type="button" class="preset-option" role="option" id="preset-code" data-value="code" aria-selected="false"><strong>code</strong><small>Exclude common binary and media files</small></button></div></div><span></span>
+   </div><button class="outlined save" id="save"><svg><use href="#copy"/></svg>Save profile</button></section></div>
+  <section class="filters card"><div class="sectiontitle"><svg><path d="M2 4h20l-8 8v6l-4 3v-9Z" stroke="currentColor" stroke-width="1.6" fill="none"/></svg>Optional profile filters <span class="muted-italic">(one glob per line)</span></div><div class="filtergrid"><div><div class="field-title with-info">Additional exclusions <span class="info-wrap left-tip"><button class="info-button" type="button" aria-label="How do exclusions work?" aria-describedby="tip-exclude">i</button><span class="info-tip" id="tip-exclude" role="tooltip"><strong>Skip matching files and folders.</strong> One glob per line. For example <code>tests</code>, <code>*.log</code>, or <code>working-files/**</code>. Exclusions apply after include-only rules, and preset safety exclusions still apply. Stale excluded destination files will be removed during Sync.</span></span></div><p class="field-help">Example: *.psd or working-files/**</p><textarea class="textinput" id="exclude"></textarea></div><div><div class="field-title with-info">Include-only patterns <span class="info-wrap"><button class="info-button" type="button" aria-label="How do include-only patterns work?" aria-describedby="tip-include">i</button><span class="info-tip" id="tip-include" role="tooltip"><strong>Choose what appears in the mirror.</strong> Leave blank to include all files except exclusions. Add one glob per line, e.g. <code>ComfyUI-Pixel_Nodes/**</code> and <code>Pixel_Nodes_ComfyUI.html</code>. Preset and custom exclusions still apply. During Sync, previously mirrored files outside the selection are deleted <em>from the destination only</em>. Preview first.</span></span></div><p class="field-help">Empty = include everything except exclusions</p><textarea class="textinput" id="include"></textarea></div></div></section>
+  <div class="actions"><button class="outlined action" id="preview"><svg><use href="#eye"/></svg>Preview changes</button><button class="action sync" id="sync"><svg><use href="#sync-glyph"/></svg>SYNC NOW</button><button class="outlined action" id="verify"><svg><use href="#check"/></svg>Verify local mirror</button><button class="outlined action" id="refresh"><svg><use href="#sync-glyph"/></svg>Refresh</button></div>
+  <section class="results card"><div class="results-head"><div class="resultstatus"><svg><use href="#check"/></svg><span id="status">Ready.</span></div><div class="utilities"><button id="copy-result" title="Copy JSON result" class="outlined square"><svg><use href="#copy"/></svg></button><button id="pretty" title="Format JSON" class="outlined square">{ }</button><button id="expand" title="Expand results" class="outlined square">⤢</button></div></div><div class="code-area"><div id="linenums" class="linenums">1</div><pre id="result" class="code">{}</pre></div></section>
+ </main>
+ <div class="resize-edge north" data-resize="north" aria-hidden="true"></div><div class="resize-edge south" data-resize="south" aria-hidden="true"></div>
+ <div class="resize-edge west" data-resize="west" aria-hidden="true"></div><div class="resize-edge east" data-resize="east" aria-hidden="true"></div>
+ <div class="resize-edge northwest" data-resize="northwest" aria-hidden="true"></div><div class="resize-edge northeast" data-resize="northeast" aria-hidden="true"></div>
+ <div class="resize-edge southwest" data-resize="southwest" aria-hidden="true"></div><div class="resize-edge southeast" data-resize="southeast" aria-hidden="true"></div>
+</div>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);let profiles={},selected='',rawResult='{}',busy=false,bridgeConnected=false,startupInFlight=false;
+const bridgeControls=['new','save','preview','sync','verify','refresh','browse-source','browse-destination'];
+function bridgeAvailable(){return !!(window.pywebview?.api?.list_profiles&&window.pywebview?.api?.browse_folder&&window.pywebview?.api?.sync);}
+function controls(){const enabled=bridgeConnected||!!window.__REPOSYNC_PREVIEW__;for(const id of bridgeControls)$(id).disabled=busy||!enabled;$('ready').textContent=busy?'Working':enabled?'Ready':'Connecting';}
+const svgFolder='<svg><use href="#folder"/></svg>';
+const presetValues=['review','code'];
+function setPreset(value){
+ if(!presetValues.includes(value))value='review';
+ $('preset').value=value;$('preset-selected').textContent=value;
+ for(const el of document.querySelectorAll('.preset-option'))el.setAttribute('aria-selected',String(el.dataset.value===value));
+}
+function presetOpen(){return $('preset-trigger').getAttribute('aria-expanded')==='true'}
+function togglePreset(open,focusOption=false){
+ $('preset-trigger').setAttribute('aria-expanded',String(open));$('preset-menu').hidden=!open;
+ if(open&&focusOption)document.getElementById('preset-'+$('preset').value).focus();
+}
+$('preset-trigger').addEventListener('click',()=>togglePreset(!presetOpen()));
+$('preset-trigger').addEventListener('keydown',e=>{
+ if(['ArrowDown','ArrowUp',' ','Enter','Home','End'].includes(e.key)){
+  e.preventDefault();togglePreset(true,true);
+  if(e.key==='End')$('preset-code').focus();if(e.key==='Home')$('preset-review').focus();
+ }else if(e.key==='Escape'){togglePreset(false)}
+});
+for(const option of document.querySelectorAll('.preset-option')){
+ option.addEventListener('click',()=>{setPreset(option.dataset.value);togglePreset(false);$('preset-trigger').focus()});
+ option.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){e.preventDefault();togglePreset(false);$('preset-trigger').focus()}
+  if(['ArrowUp','ArrowDown','Home','End'].includes(e.key)){
+   e.preventDefault();const target=e.key==='Home'?'review':e.key==='End'?'code':(option.dataset.value==='review'?'code':'review');
+   $('preset-'+target).focus();
+  }
+ });
+}
+document.addEventListener('pointerdown',e=>{if(!e.target.closest('#preset-box'))togglePreset(false)});
+
+function escapeHTML(v){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function notify(s){$('status').textContent=s;controls();}
+function setBusy(v){busy=v;controls();}
+function showResult(v){
+ rawResult=typeof v==='string'?v:JSON.stringify(v,null,2);
+ const rx=/("(?:\\.|[^"\\])*"(?=\s*:))|("(?:\\.|[^"\\])*")|\b(true|false|null)\b|(?<=:\s)(\d+)(?=[,}\s])/g;
+ let cursor=0,out='';
+ for(const m of rawResult.matchAll(rx)){
+   out+=escapeHTML(rawResult.slice(cursor,m.index));
+   let cls=m[1]?'key':m[2]?'str':m[3]?'bool':'num';
+   out+='<span class="'+cls+'">'+escapeHTML(m[0])+'</span>';
+   cursor=m.index+m[0].length;
+ }
+ $('result').innerHTML=out+escapeHTML(rawResult.slice(cursor));
+ $('linenums').textContent=rawResult.split('\n').map((_,i)=>i+1).join('\n');
+}
+function getForm(){return {name:$('profile').value.trim(),source:$('source').value.trim(),destination:$('destination').value.trim(),preset:$('preset').value,exclude:$('exclude').value.split('\n').map(x=>x.trim()).filter(Boolean),include:$('include').value.split('\n').map(x=>x.trim()).filter(Boolean)};}
+function canonicalPath(x){return String(x||'').trim().replace(/\\/g,'/').replace(/\/+$/,'').toLocaleLowerCase();}
+function assertSaved(){if(!selected||!profiles[selected])throw new Error('Save your profile first.');const f=getForm(),p=profiles[selected];if(f.name!==p.name||canonicalPath(f.source)!==canonicalPath(p.source)||canonicalPath(f.destination)!==canonicalPath(p.destination)||f.preset!==(p.preset||'review')||JSON.stringify(f.exclude)!==JSON.stringify(p.exclude||[])||JSON.stringify(f.include)!==JSON.stringify(p.include||[]))throw new Error('Profile has unsaved changes. Click Save profile first.');}
+function fill(p){$('profile').value=p?.name||'';$('source').value=p?.source||'';$('destination').value=p?.destination||'';setPreset(p?.preset||'review');togglePreset(false);$('exclude').value=(p?.exclude||[]).join('\n');$('include').value=(p?.include||[]).join('\n')}
+function renderProfiles(){const names=Object.keys(profiles).sort();$('profiles').innerHTML=names.map(name=>'<button class="profile '+(name===selected?'active':'')+'" data-name="'+escapeHTML(name)+'">'+svgFolder+'<span>'+escapeHTML(name)+'</span></button>').join('');document.querySelectorAll('.profile').forEach(el=>el.onclick=()=>select(el.dataset.name));}
+function select(name){selected=name;fill(profiles[name]);renderProfiles();notify('Ready.');}
+async function api(method,...args){if(window.pywebview?.api?.[method])return await window.pywebview.api[method](...args);if(window.__REPOSYNC_PREVIEW__)return mockApi(method,...args);throw new Error('Desktop bridge not ready. No files synchronized.');}
+async function mockApi(method,...args){const examples={"OCMS-S":{name:'OCMS-S',source:'M:\\AIFUN\\DSH\\tools\\ocms-s',destination:'M:\\AIFUN\\OCMS-S_ReviewSnapshot',preset:'review',exclude:[],include:[]},"Pixel-Nodes":{name:'Pixel-Nodes',source:'M:\\AIFUN\\Film_Tool\\Pixel-Nodes',destination:'M:\\AIFUN\\Film_Tool\\Pixel-Nodes_ReviewSnapshot',preset:'review',exclude:[],include:['ComfyUI-Pixel_Nodes/**','Pixel_Nodes_ComfyUI.html']},"PixelCraft":{name:'PixelCraft',source:'M:\\AIFUN\\Film_Tool\\PixelCraft',destination:'M:\\AIFUN\\Film_Tool\\PixelCraft_ReviewSnapshot',preset:'review',exclude:[],include:[]}};if(method==='list_profiles')return examples;if(method==='version')return '0.2.4';if(method==='begin_resize')return {started:true};if(method==='toggle_maximize')return {maximized:false};return {ok:true,schema:1,profile:selected,source_files:86,copied:0,deleted_files:435,deleted_dirs:84,preview_only:true};}
+async function refresh(){try{profiles=await api('list_profiles');if(selected&&!profiles[selected])selected='';if(!selected&&Object.keys(profiles).length)selected=window.__REPOSYNC_PREVIEW__&&profiles['Pixel-Nodes']?'Pixel-Nodes':Object.keys(profiles).sort()[0];if(selected)fill(profiles[selected]);renderProfiles();notify('Ready.');return true;}catch(e){notify('Desktop bridge error; mirroring disabled.');showResult({error:String(e)});return false;}}
+async function perform(method,message){if(busy)return;try{assertSaved();setBusy(true);notify('Working…');let result=await api(method,selected);showResult(result);notify(result && result.ok===false?'Verification found differences.':message);}catch(e){notify('Stopped — see error');showResult({error:String(e)});}finally{setBusy(false)}}
+$('new').onclick=()=>{selected='';fill(null);renderProfiles();notify('New profile. No files copied.')};
+for (const [id, action] of [['win-min','minimize_window'],['win-max','toggle_maximize'],['win-close','close_window']]){
+  $(id).onclick=async()=>{try{const result=await api(action);if(id==='win-max'){$('win-max').textContent=result.maximized?'❐':'□';$('win-max').title=result.maximized?'Restore':'Maximize';document.querySelector('.window').classList.toggle('is-maximized',result.maximized);}}catch(e){notify('Window control unavailable: '+e.message);}};
+}
+document.querySelectorAll('[data-resize]').forEach(el=>{
+ el.addEventListener('pointerdown',e=>{
+  if(e.button!==0||document.querySelector('.window').classList.contains('is-maximized'))return;
+  e.preventDefault();
+  api('begin_resize',el.dataset.resize).catch(err=>notify('Resize unavailable: '+err.message));
+ });
+});
+$('titlebar')?.addEventListener('dblclick',e=>{if(!e.target.closest('button'))$('win-max').click()});
+$('refresh').onclick=refresh;
+$('save').onclick=async()=>{try{setBusy(true);const p=getForm();const result=await api('save_profile',p);profiles=await api('list_profiles');selected=p.name;renderProfiles();showResult(result);notify('Saved profile. No files copied.')}catch(e){notify('Cannot save profile');alert(String(e))}finally{setBusy(false)}};
+$('preview').onclick=()=>perform('preview','Preview complete.');$('verify').onclick=()=>perform('verify','Verification complete.');
+$('sync').onclick=async()=>{try{assertSaved();const summary=await api('preview',selected);showResult(summary);if(summary.owner==='unmanaged-populated'&&!confirm('Destination is not owned by RepoSync. Adopting may DELETE its files. Continue?'))return;const desc='Exact folder mirror: files not selected in the source are DELETED from the destination. The source is never modified.\n\nProceed with Sync Now?';if(!confirm(desc))return;setBusy(true);notify('Mirroring and verifying...');const result=await api('sync',selected,summary.owner==='unmanaged-populated',true);showResult(result);notify('Complete.')}catch(e){notify('Stopped — see error');alert(String(e))}finally{setBusy(false)}};
+for (const [id,which] of [['browse-source','source'],['browse-destination','destination']])$(id).onclick=async()=>{try{const dir=await api('browse_folder',$(which).value);if(dir)$(which).value=dir}catch(e){alert(String(e))}};
+$('copy-result').onclick=async()=>{try{await navigator.clipboard.writeText(rawResult);notify('Result copied.')}catch(e){const t=document.createElement('textarea');t.value=rawResult;document.body.appendChild(t);t.select();document.execCommand('copy');t.remove();notify('Result copied.')}};
+$('pretty').onclick=()=>{try{showResult(JSON.parse(rawResult))}catch(e){}};
+$('expand').onclick=()=>{const r=$('result').closest('.results');r.classList.toggle('expanded');if(r.classList.contains('expanded')){r.style.position='fixed';r.style.inset='65px 32px 24px';r.style.zIndex='10';}else{r.removeAttribute('style')}};
+async function startup(){
+ if(bridgeConnected||startupInFlight||!(bridgeAvailable()||window.__REPOSYNC_PREVIEW__))return;
+ startupInFlight=true;
+ const ok=await refresh();
+ startupInFlight=false;
+ if(ok){bridgeConnected=true;controls();try{const version=await api('version');$('app-version').textContent='v'+version;}catch(e){/* Visible fallback is the packaged UI version. */}if(window.__REPOSYNC_PREVIEW__)showResult({ok:true,schema:1,profile:selected,source_files:86,copied:0,deleted_files:435,deleted_dirs:84});}
+}
+// pywebview dispatches pywebviewready on WINDOW, not document. Late injection is
+// possible in frozen WebView2; retry for 10 seconds then fail visibly and safely.
+window.addEventListener('pywebviewready',startup);
+controls();notify('Connecting to desktop bridge…');
+if(bridgeAvailable()||window.__REPOSYNC_PREVIEW__)startup();
+let bridgeAttempts=0;
+const bridgeTimer=setInterval(()=>{
+ if(bridgeConnected){clearInterval(bridgeTimer);return;}
+ if(bridgeAvailable()&&!startupInFlight)startup();
+ if(++bridgeAttempts>=40){clearInterval(bridgeTimer);if(!bridgeConnected){
+   notify('ERROR: Desktop bridge unavailable. No files synchronized. Restart or inspect build logs.');
+   showResult({error:'Desktop bridge unavailable',hint:'UI loaded but native bridge did not initialize. Use Alt+F4 to close and report this failure.'});
+ }}
+},250);
+</script></body></html>
