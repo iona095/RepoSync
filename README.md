@@ -11,6 +11,8 @@ SHA-256 of `RepoSync_Setup_v0.2.4.exe`:
 
 The installer is not code-signed yet, so Windows SmartScreen may warn on first run. Check the hash above before installing.
 
+![RepoSync main window](docs/screenshot.png)
+
 ## How it works
 
 1. Pick a **source** folder and a **destination** folder and save them as a profile.
