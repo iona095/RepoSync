@@ -1,8 +1,8 @@
-; RepoSync v0.2.4 — per-user GUI and CLI installer.
+; RepoSync v0.2.6 — per-user GUI and CLI installer.
 ; Compile from Windows with ISCC.exe after Build-RepoSync-Installer.ps1 stages binaries.
 ; Never executes a synchronization. Profiles in {localappdata}\RepoSync\profiles.json
 ; are user data: never included in [Files] and never removed by uninstall.
-#define ProductVersion "0.2.4"
+#define ProductVersion "0.2.6"
 
 [Setup]
 AppId={{4F7EBE67-96FD-4B58-A625-7E0904F73A26}
@@ -25,7 +25,7 @@ WizardStyle=modern
 ChangesEnvironment=yes
 CloseApplications=yes
 RestartApplications=no
-VersionInfoVersion=0.2.4.0
+VersionInfoVersion=0.2.6.0
 VersionInfoDescription=RepoSync Windows installer (GUI and agent CLI)
 LicenseFile=stage\LICENSE.txt
 SetupIconFile=source\assets\RepoSync.ico

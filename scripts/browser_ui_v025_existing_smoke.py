@@ -19,7 +19,7 @@ with sync_playwright() as play:
     page.evaluate('window.__REPOSYNC_PREVIEW__ = true;')
     page.set_content(make_html(), wait_until='load')
     page.wait_for_function("document.getElementById('ready').textContent==='Ready'")
-    assert page.locator('#app-version').inner_text()=='v0.2.4'
+    assert page.locator('#app-version').inner_text()=='v0.2.6'
     assert page.locator('#preset').input_value()=='review'
     assert page.locator('#preset-menu').is_hidden()
     page.locator('#preset-trigger').click()
@@ -61,7 +61,7 @@ with sync_playwright() as play:
     # Capture a usable preview of this build at desktop size.
     page.set_viewport_size({'width':1343,'height':1119})
     page.locator('#preset-trigger').click()
-    page.screenshot(path='/mnt/data/RepoSync_v0.2.4_UI_Preset_Preview.png')
+    page.screenshot(path='/mnt/data/RepoSync_v0.2.6_UI_Preset_Preview.png')
     assert not errors, errors
     browser.close()
 print('PASS: version badge, preset styling and keyboard, info tooltips, edge resize dispatch, small-screen scrolling')

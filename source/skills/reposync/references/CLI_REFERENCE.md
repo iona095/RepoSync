@@ -1,4 +1,4 @@
-# RepoSync CLI reference — v0.2.4
+# RepoSync CLI reference — v0.2.6
 
 Entrypoint (Windows): `%LOCALAPPDATA%\RepoSync\bin\RepoSyncCLI.exe`. Optional PATH wrapper: `reposync` if installed. CLI doesn't require Git. In PowerShell:
 

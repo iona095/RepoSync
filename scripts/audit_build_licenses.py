@@ -90,6 +90,23 @@ def run(out):
             target = out / f'{name}-{pkg.version}-{copied}{suffix}'
             shutil.copy2(src, target)
             copied += 1
+        if name == 'proxy_tools' and copied == 0:
+            # Verified upstream license for proxy_tools 0.1.0; installed wheel omits LICENSE.
+            # It is distributed verbatim beside the application source, not downloaded at build time.
+            vendor = pathlib.Path(__file__).resolve().parents[1] / 'source' / 'licenses' / 'proxy_tools-0.1.0-BSD-LICENSE.txt'
+            if pkg.version == '0.1.0' and vendor.is_file():
+                evidence = vendor.read_text(encoding='utf-8', errors='replace')
+                normalized = ' '.join(evidence.split()).lower()
+                if (normalized.startswith('the bsd license (bsd)')
+                        and 'copyright (c) 2013 armin ronacher' in normalized
+                        and 'copyright (c) 2014 jonathan tushman' in normalized
+                        and 'redistributions in binary form must reproduce' in normalized
+                        and 'disclaimer in the documentation' in normalized):
+                    shutil.copy2(vendor, out / 'proxy_tools-0.1.0-upstream-BSD-LICENSE.txt')
+                    sections.append('proxy_tools 0.1.0: original BSD license bundled from upstream '
+                                    'https://github.com/jtushman/proxy_tools/blob/master/LICENSE.txt. '
+                                    'Wheel includes license metadata but no LICENSE file.')
+                    copied = 1
         if verified_mit_fallback:
             sections.append('clr_loader 0.3.1: MIT confirmed by installed distribution LICENSE '
                             '(metadata license label missing). Authoritative source: '
@@ -97,7 +114,10 @@ def run(out):
                             'inspected installed license, bundled copy included.')
         sections.append(f'{name} {pkg.version}: license metadata: {declared[:350]} | copied texts: {copied}')
         if not copied:
-            review.append(f'{name}: no installed license text available; add authoritative license before public release')
+            if name == 'proxy_tools':
+                missing.append(f'{name} {pkg.version}: pinned upstream BSD license not verified or not bundled')
+            else:
+                review.append(f'{name}: no installed license text available; add authoritative license before public release')
     (out / 'BUILD-THIRD-PARTY-NOTICES.txt').write_text('\n'.join(sections + ['REVIEW ITEMS:'] + review)+'\n',encoding='utf-8')
     if missing:
         print('LICENSING GATE NEEDS REVIEW:')

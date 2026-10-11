@@ -73,3 +73,10 @@ A user request to *inspect*, *review*, or *verify* does not constitute permissio
 - Profiles normally reside in `%LOCALAPPDATA%\RepoSync\profiles.json`. Do not read user secrets unnecessarily.
 
 Read `references/CLI_REFERENCE.md` for exact argument syntax, flags, exit codes and examples. `MANUAL.md` is shipped with the installed application at `%LOCALAPPDATA%\RepoSync\docs\MANUAL.md`.
+
+## GUI confirmation setting (v0.2.6)
+
+The GUI's **Confirm each sync** toggle is a user-only preference. It never
+authorizes agent-initiated sync, overrides `sync --yes`, or disables the separate
+unmanaged-destination adoption confirmation. Agents must still show a current
+preview and obtain the user's explicit authorization before destructive sync.

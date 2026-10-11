@@ -20,7 +20,7 @@ import sys
 import tempfile
 import uuid
 
-VERSION = "0.2.4"
+VERSION = "0.2.6"
 META_DIR = ".reposync"
 PROFILES_FILE = "profiles.json"
 DEFAULT_EXCLUDE = [

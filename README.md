@@ -4,10 +4,10 @@
 
 RepoSync makes one folder an exact copy of another. It works with any local folder, with or without Git. Typical use: mirror a project into a folder watched by Google Drive Desktop, so Drive picks up a clean copy.
 
-[**Download RepoSync v0.2.4 for Windows**](https://github.com/iona095/RepoSync/releases/download/v0.2.4/RepoSync_Setup_v0.2.4.exe) · [Release notes](https://github.com/iona095/RepoSync/releases/tag/v0.2.4) · [Website](https://apps.pixelcraftsco.com/reposync)
+[**Download RepoSync v0.2.6 for Windows**](https://github.com/iona095/RepoSync/releases/download/v0.2.6/RepoSync_Setup_v0.2.6.exe) · [Release notes](https://github.com/iona095/RepoSync/releases/tag/v0.2.6) · [Website](https://apps.pixelcraftsco.com/reposync)
 
-SHA-256 of `RepoSync_Setup_v0.2.4.exe`:
-`18763C692F0F99905682E777B89EE0CC069A79E5CC7A0515DC06F1CCB06FB3CC`
+SHA-256 of `RepoSync_Setup_v0.2.6.exe`:
+`E7B47595790D6FC585275805E801F20FE7A73D14FA60A294FEB023AC2F064F03`
 
 The installer is not code-signed yet, so Windows SmartScreen may warn on first run. Check the hash above before installing.
 
@@ -51,7 +51,7 @@ An optional agent skill is in [`source/skills/reposync`](source/skills/reposync/
 
 - [User manual](source/MANUAL.md)
 - [CLI reference](source/skills/reposync/references/CLI_REFERENCE.md)
-- [Windows acceptance checklist](WINDOWS_ACCEPTANCE_v0.2.4.md)
+- [Windows acceptance checklist](WINDOWS_ACCEPTANCE_v0.2.6.md)
 
 ## Building from source
 

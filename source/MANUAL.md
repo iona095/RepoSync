@@ -1,4 +1,4 @@
-# RepoSync v0.2.4 — User manual
+# RepoSync v0.2.6 — User manual
 
 **Purpose:** manually mirror **any local folder** to another local folder. No Git requirement. The target is an **exact filtered local mirror**, not an archive or historical backup. Google Drive Desktop may then sync the target to the cloud on its own schedule. RepoSync does **not** upload through the Drive API and cannot confirm cloud upload completion.
 
@@ -145,3 +145,16 @@ The skill explains safe preview/verify workflows, the CLI schema, supported patt
 ## 7. Limits and safety
 
 RepoSync is **one-way, local, manual**. It is not a versioned backup, cloud upload tool, scheduled service, conflict-resolution system, or security/secret scanner. Symlinks/junctions are not traversed; unsafe target links are rejected. Never synchronize into a source folder or one of its ancestors/descendants. For sensitive source material inspect included files and Drive sharing permissions. Profiles in `%LOCALAPPDATA%\RepoSync\profiles.json` survive ordinary updates/uninstalls.
+
+## Saved profile list and routine confirmation (v0.2.6)
+
+The sidebar displays a persistent vertical scrollbar and a count of all saved profiles. After saving a new profile, its row is automatically brought into view. A profile does not disappear merely because it is below the visible area. Saving a new profile using the name of a different existing profile is rejected rather than silently overwriting it. Renaming by saving under a new, unused name creates an additional profile and preserves the previous one.
+
+**Confirm each sync** is an opt-in safety preference change in the GUI (ON by default). Turning it OFF skips the routine browser confirmation before each manual Sync Now, but the action **still previews first**, can delete obsolete destination files, and requires a click. A separate warning when adopting an unmanaged populated destination cannot be skipped. This preference is stored in `ui-preferences.json` alongside `profiles.json` in the RepoSync user configuration directory; no synchronization occurs while changing it. If the preference file cannot be read, routine confirmations remain ON. The agent CLI's explicit `--yes` requirement is unchanged.
+
+
+## GUI updates in v0.2.6
+
+- **Delete profile** removes only the selected saved profile entry after an explicit confirmation. It does not delete or alter the source folder, destination folder, or the files within either one. This confirmation cannot be disabled using *Confirm each sync*.
+- **Resize the window** by dragging any outer edge or corner. The custom frameless window uses native Windows pointer tracking. If resizing fails, leave the application running and check `%LOCALAPPDATA%\RepoSync\logs\webview-bridge.log`; report which edge/corner, Windows DPI scaling, and whether the window was maximized.
+- The agent CLI and mirroring engine remain unchanged except for the version identifier.

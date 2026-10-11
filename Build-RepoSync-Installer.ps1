@@ -1,6 +1,6 @@
 <#
 RepoSync distribution builder for Windows 11 / PowerShell 7.
-Creates one redistributable RepoSync_Setup_v0.2.4.exe, containing GUI + agent CLI.
+Creates one redistributable RepoSync_Setup_v0.2.6.exe, containing GUI + agent CLI.
 No RepoSync profiles are changed, no folder sync performed, no existing app overwritten.
 Requires Python 3.12 (py -3.12), Internet for isolated PyInstaller install,
 and Inno Setup 6/7 (ISCC.exe) installed once on the BUILD PC.
@@ -24,9 +24,9 @@ $spec = Join-Path $build 'pyinstaller-spec'
 $license = Join-Path $source 'LICENSE'
 $iconIco = Join-Path $source 'assets\RepoSync.ico'
 $iconPng = Join-Path $source 'assets\RepoSync.png'
-$expectedSetup = Join-Path $root 'release\RepoSync_Setup_v0.2.4.exe'
+$expectedSetup = Join-Path $root 'release\RepoSync_Setup_v0.2.6.exe'
 
-foreach ($name in @('reposync.py','reposync_gui.py','README.md','LICENSE','assets/RepoSync.ico','assets/RepoSync.png','ui/index.html','ui/RepoSync.png','ui/RepoSync.ico','MANUAL.md','skills/reposync/SKILL.md','skills/reposync/references/CLI_REFERENCE.md')) {
+foreach ($name in @('reposync.py','reposync_gui.py','native_resize.py','README.md','LICENSE','assets/RepoSync.ico','assets/RepoSync.png','ui/index.html','ui/RepoSync.png','ui/RepoSync.ico','MANUAL.md','skills/reposync/SKILL.md','skills/reposync/references/CLI_REFERENCE.md')) {
     if (-not (Test-Path -LiteralPath (Join-Path $source $name) -PathType Leaf)) {
         throw "Incomplete source distribution: missing $name"
     }
@@ -45,7 +45,7 @@ if (-not (Test-Path -LiteralPath $pythonLicense -PathType Leaf)) {
 }
 
 if ($UseExistingExe -and -not (Test-Path -LiteralPath (Join-Path $venv 'Scripts\python.exe'))) {
-    throw 'Cannot use existing executables without a v0.2.4 build environment/license inventory.'
+    throw 'Cannot use existing executables without a v0.2.6 build environment/license inventory.'
 }
 if (-not $UseExistingExe) {
     $venvPython = Join-Path $venv 'Scripts\python.exe'
@@ -71,7 +71,7 @@ if __name__ == '__main__':
     & $venvPython -m PyInstaller --noconfirm --clean --onefile --windowed `
         --name RepoSync --paths $source --distpath $dist `
         --icon $iconIco --add-data "$(Join-Path $source 'ui');ui" `
-        --hidden-import clr --hidden-import webview.platforms.edgechromium --collect-all webview `
+        --hidden-import clr --hidden-import native_resize --hidden-import webview.platforms.edgechromium --collect-all webview `
         --workpath (Join-Path $work 'gui') --specpath $spec $entry
     if ($LASTEXITCODE -ne 0) { throw 'GUI executable build failed.' }
 
@@ -83,7 +83,7 @@ if __name__ == '__main__':
         (Join-Path $source 'reposync.py')
     if ($LASTEXITCODE -ne 0) { throw 'CLI executable build failed.' }
 } else {
-    Write-Host 'Using already-built executables. Ensure both are FROM v0.2.4; never reuse old v0.1.2 binaries.' -ForegroundColor Cyan
+    Write-Host 'Using already-built executables. Ensure both are FROM v0.2.6; never reuse old v0.1.2 binaries.' -ForegroundColor Cyan
 }
 
 $gui = Join-Path $dist 'RepoSync.exe'
@@ -101,7 +101,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Compiled CLI --version smoke test failed.' }
     & $cli list --json
     if ($LASTEXITCODE -ne 0) { throw 'Compiled CLI list --json smoke test failed.' }
-    if ((& $cli --version).Trim() -ne '0.2.4') { throw 'Wrong compiled CLI version; refuse stale binary.' }
+    if ((& $cli --version).Trim() -ne '0.2.6') { throw 'Wrong compiled CLI version; refuse stale binary.' }
 } finally {
     if ($null -eq $oldHome) { Remove-Item Env:REPOSYNC_HOME -ErrorAction SilentlyContinue }
     else { $env:REPOSYNC_HOME = $oldHome }

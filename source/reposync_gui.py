@@ -13,7 +13,7 @@ import os
 import sys
 from pathlib import Path
 
-from reposync import (VERSION, RepoSyncError, load_profiles, save_profiles, marker_state,
+from reposync import (VERSION, RepoSyncError, base_dir, atomic_json, load_profiles, save_profiles, marker_state,
                       validate_paths, plan, slim_plan, sync, verify)
 
 
@@ -23,6 +23,8 @@ class DesktopAPI:
     def __init__(self):
         self._window = None
         self._maximized = False
+        from native_resize import NativeDragResize
+        self._native_resizer = NativeDragResize()
 
     def minimize_window(self):
         if self._window is not None:
@@ -38,39 +40,23 @@ class DesktopAPI:
             self._maximized = not self._maximized
         return {"maximized": self._maximized}
 
-    # Windows sizing hit tests for an intentionally frameless WinForms window.
-    # Merely setting pywebview resizable=True is not enough on the WinForms
-    # renderer; these codes ask Windows to enter its native move/size loop.
-    _RESIZE_HIT_CODES = {
-        'west': 10, 'east': 11, 'north': 12, 'northwest': 13,
-        'northeast': 14, 'south': 15, 'southwest': 16, 'southeast': 17,
-    }
+    _RESIZE_EDGES = frozenset({'west', 'east', 'north', 'northwest',
+                                'northeast', 'south', 'southwest', 'southeast'})
 
     def begin_resize(self, edge):
-        """Begin native edge/corner resize (user pointer down only, Windows)."""
-        if edge not in self._RESIZE_HIT_CODES:
+        """Start a real OS-level pointer drag for frameless Windows sizing."""
+        if edge not in self._RESIZE_EDGES:
             raise RepoSyncError('Unknown resize edge')
         if sys.platform != 'win32' or self._window is None:
             raise RepoSyncError('Native resize only supported on Windows desktop.')
-        # Do not expose the WinForms form via the public JS API.
+        if self._maximized:
+            raise RepoSyncError('Restore the window before resizing.')
         try:
-            import ctypes
-            from ctypes import wintypes
             hwnd = int(self._window.native.Handle.ToInt64())
-            if not hwnd:
-                raise OSError('Window handle unavailable')
-            user32 = ctypes.WinDLL('user32', use_last_error=True)
-            user32.ReleaseCapture.argtypes = []
-            user32.ReleaseCapture.restype = wintypes.BOOL
-            user32.SendMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
-            user32.SendMessageW.restype = wintypes.LPARAM
-            user32.ReleaseCapture()
-            # WM_NCLBUTTONDOWN: let Windows handle cursor tracking, DPI and
-            # minimum window dimensions rather than resizing in JavaScript.
-            user32.SendMessageW(hwnd, 0x00A1, self._RESIZE_HIT_CODES[edge], 0)
+            started = self._native_resizer.start(hwnd, edge)
+            return {'started': bool(started)}
         except Exception as exc:
-            raise RepoSyncError('Windows native resize failed') from exc
-        return {'started': True}
+            raise RepoSyncError(f'Windows native resize failed: {exc}') from exc
 
     def close_window(self):
         if self._window is not None:
@@ -84,7 +70,28 @@ class DesktopAPI:
     def list_profiles(self):
         return load_profiles()
 
-    def save_profile(self, data):
+    def get_preferences(self):
+        """User-scoped UI preference, independent of profiles and CLI."""
+        path = base_dir() / 'ui-preferences.json'
+        if not path.exists():
+            return {'schema': 1, 'confirm_sync': True}
+        try:
+            data = json.loads(path.read_text(encoding='utf-8'))
+            if (not isinstance(data, dict) or data.get('schema') != 1
+                    or type(data.get('confirm_sync')) is not bool):
+                raise ValueError('invalid preference schema')
+        except (OSError, ValueError) as exc:
+            raise RepoSyncError('Cannot read UI preferences; routine confirmation will remain enabled') from exc
+        return {'schema': 1, 'confirm_sync': data['confirm_sync']}
+
+    def set_preferences(self, data):
+        if not isinstance(data, dict) or type(data.get('confirm_sync')) is not bool:
+            raise RepoSyncError('Invalid confirmation preference')
+        result = {'schema': 1, 'confirm_sync': data['confirm_sync']}
+        atomic_json(base_dir() / 'ui-preferences.json', result)
+        return result
+
+    def save_profile(self, data, original_name=''):
         if not isinstance(data, dict):
             raise RepoSyncError('Invalid profile')
         name = str(data.get('name', '')).strip()
@@ -105,9 +112,33 @@ class DesktopAPI:
                  preset=preset, exclude=excludes, include=includes)
         marker_state(p)
         profiles = load_profiles()
+        # Prevent a new profile, or a rename, from silently overwriting an
+        # unrelated existing profile. The selected profile name is an optimistic
+        # concurrency guard; the CLI and schema remain unchanged.
+        if name in profiles and original_name != name:
+            raise RepoSyncError(f"Profile '{name}' already exists. Select it to edit, or choose another name.")
         profiles[name] = p
         save_profiles(profiles)
         return dict(ok=True, saved=name, message='Profile saved. No files copied.')
+
+    def delete_profile(self, name, expected_profile):
+        """Delete a SAVED PROFILE ENTRY only, never folders or mirror metadata.
+
+        Match the selected profile snapshot to prevent a stale GUI from
+        deleting a profile that another agent/session has since modified.
+        """
+        if not isinstance(name, str) or not name or not isinstance(expected_profile, dict):
+            raise RepoSyncError('Select a saved profile to delete.')
+        profiles = load_profiles()
+        current = profiles.get(name)
+        if current is None:
+            raise RepoSyncError('Profile no longer exists. Refresh the list.')
+        if current != expected_profile:
+            raise RepoSyncError('Profile has changed since selection. Refresh before deleting.')
+        del profiles[name]
+        save_profiles(profiles)
+        return {'ok': True, 'deleted': name,
+                'message': 'Saved profile removed. Source and destination files were not touched.'}
 
     def _saved(self, name):
         profiles = load_profiles()
