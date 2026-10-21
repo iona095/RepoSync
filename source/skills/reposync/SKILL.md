@@ -65,7 +65,8 @@ A user request to *inspect*, *review*, or *verify* does not constitute permissio
 
 ## Special cases
 
-- RepoSync deliberately ignores `.tmp.driveupload` and `.tmp.drivedownload` in **the destination**; these are Drive Desktop managed transient paths, not project data.
+- RepoSync deliberately ignores `.tmp.driveupload` and `.tmp.drivedownload` in **the destination**; these are Drive Desktop managed transient paths, not project data. They are also never removed: if an obsolete destination directory contains one, the sync stops instead of deleting it.
+- A destination inside a Google Drive "mirrored folder" has its directories marked read-only by DriveFS. Since v0.2.7 the engine clears that attribute on the exact path it is about to mutate, so a normal sync succeeds. If a removal still fails, the error names the exact path and says the mirror is not fully verified: report that path and error to the user and wait for a new preview. Do not delete files by hand to force a pass, and do not change the source or the destination's read-only attributes as a workaround.
 - GUI errors, backend errors, or folder-lock conflicts are **not** a reason to delete source files, disable protections, or grant broad permissions.
 - Git branch and commit metadata are optional and do not determine what the tool can mirror.
 - No network access or direct Drive API required to run the CLI.

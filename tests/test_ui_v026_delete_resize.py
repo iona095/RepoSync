@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'source'))
-from reposync import RepoSyncError
+from reposync import RepoSyncError, VERSION
 from reposync_gui import DesktopAPI, make_html
 from native_resize import VALID_EDGES, new_rect
 
@@ -53,7 +53,7 @@ def test_gui_delete_has_always_on_confirmation_and_resets_selection():
     assert "api('delete_profile',name,expected)" in html
     assert "selected='';fill(null);renderProfiles()" in html
     assert "$('delete-profile').disabled=busy||!enabled||!selected||!profiles[selected]" in html
-    assert 'v0.2.6' in html
+    assert f'v{VERSION}' in html
 
 
 @pytest.mark.parametrize(('edge','delta','expected'),[

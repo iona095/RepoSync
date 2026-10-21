@@ -7,12 +7,12 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'source'))
 import reposync_gui
-from reposync import RepoSyncError
+from reposync import RepoSyncError, VERSION
 
 
 def test_preset_dropdown_tooltips_version_and_resize_zones():
     html=reposync_gui.make_html()
-    assert 'app-version' in html and 'v0.2.6' in html
+    assert 'app-version' in html and f'v{VERSION}' in html
     assert 'id="preset-trigger"' in html and 'role="listbox"' in html
     assert '<select class="input" id="preset">' not in html
     assert 'data-resize="northwest"' in html

@@ -1,4 +1,4 @@
-# RepoSync v0.2.6 — User manual
+# RepoSync v0.2.7 — User manual
 
 **Purpose:** manually mirror **any local folder** to another local folder. No Git requirement. The target is an **exact filtered local mirror**, not an archive or historical backup. Google Drive Desktop may then sync the target to the cloud on its own schedule. RepoSync does **not** upload through the Drive API and cannot confirm cloud upload completion.
 
@@ -139,12 +139,49 @@ The skill explains safe preview/verify workflows, the CLI schema, supported patt
 | `Unexpected content in obsolete destination directory` | Stop sync; inspect remaining target files and concurrent apps, then preview again. Avoid manual deletion |
 | Destination is `unmanaged-populated` | Use a new empty destination if possible; `--adopt --yes` only after explicit consent and preview |
 | Verification differs | Inspect JSON `missing`, `extra`, `different`, `missing_dirs`, `extra_dirs`. Destination may be partially updated; do not blindly rerun on production data |
+| `Access is denied` / `[WinError 5]` while deleting or updating destination files | See **Read-only destination items (Windows)** below. RepoSync clears the read-only attribute on the exact item it is about to change; if it still fails, the item is locked by another program — close anything using the destination, preview again, then retry |
 | Google Drive still uploading | Wait for Drive Desktop; RepoSync can only verify the local target |
 | Profile settings appear unsaved | Save the current form before Preview/Sync; switching profiles reloads saved values |
 
 ## 7. Limits and safety
 
 RepoSync is **one-way, local, manual**. It is not a versioned backup, cloud upload tool, scheduled service, conflict-resolution system, or security/secret scanner. Symlinks/junctions are not traversed; unsafe target links are rejected. Never synchronize into a source folder or one of its ancestors/descendants. For sensitive source material inspect included files and Drive sharing permissions. Profiles in `%LOCALAPPDATA%\RepoSync\profiles.json` survive ordinary updates/uninstalls.
+
+## Read-only destination items (Windows)
+
+On Windows, an application can mark a file or a folder as **read-only**. Google
+Drive for desktop does this to folders inside a synced drive, and a read-only
+file in your source folder carries the same attribute into the mirror. Windows
+then refuses to delete or overwrite a read-only item, which used to end a sync
+with `PermissionError: [WinError 5] Access is denied`.
+
+**What RepoSync does now**
+
+- Right before RepoSync updates or deletes one specific item in the
+  **destination**, it clears the read-only attribute on that exact item and
+  then makes the change. No other destination item is affected, and the
+  attribute is not stripped in advance across the whole tree.
+- The **source** folder is never modified. RepoSync does not remove read-only
+  attributes from your source files.
+- A read-only file in the source is still mirrored as a read-only file, so the
+  mirror stays faithful to the source. Such a mirrored file can still be
+  updated or removed by a later sync, because RepoSync clears the attribute on
+  that file only at the moment it is about to change it.
+
+**When a deletion still fails**
+
+If the item is genuinely locked — for example another program currently has it
+open, or the file was created again by a concurrent process — the sync stops
+with an error that names the exact path, states that the mirror is **not fully
+verified**, and tells you to stop and preview again before retrying.
+
+What to do:
+
+1. Read the error and note the exact path it names.
+2. Close any program that may be using that file or folder (editor, viewer,
+   archive tool, antivirus scan).
+3. Run **Preview** again and check the deletion list before you sync once more.
+4. Do **not** delete files by hand to force the sync through.
 
 ## Saved profile list and routine confirmation (v0.2.6)
 
@@ -158,3 +195,15 @@ The sidebar displays a persistent vertical scrollbar and a count of all saved pr
 - **Delete profile** removes only the selected saved profile entry after an explicit confirmation. It does not delete or alter the source folder, destination folder, or the files within either one. This confirmation cannot be disabled using *Confirm each sync*.
 - **Resize the window** by dragging any outer edge or corner. The custom frameless window uses native Windows pointer tracking. If resizing fails, leave the application running and check `%LOCALAPPDATA%\RepoSync\logs\webview-bridge.log`; report which edge/corner, Windows DPI scaling, and whether the window was maximized.
 - The agent CLI and mirroring engine remain unchanged except for the version identifier.
+
+## Updates in v0.2.7
+
+- **Read-only destination items are handled safely.** RepoSync clears the Windows
+  read-only attribute on the exact destination item it is about to update or
+  delete, immediately before doing so. The source folder is never modified, a
+  read-only source file is still mirrored as a read-only file, and such a mirror
+  file can still be updated or removed by a later sync. A deletion that fails
+  for any other reason still stops the sync with the exact path and a clear
+  instruction to preview again before retrying.
+- The GUI, profiles, filters, presets and the Drive transient-directory rules
+  are unchanged from v0.2.6.

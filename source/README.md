@@ -1,4 +1,4 @@
-# RepoSync v0.2.6
+# RepoSync v0.2.7
 
 **RepoSync** is a Windows-first, standalone **manual exact-folder mirror** for **any local folder**, including non-Git projects. It preserves your source files and updates/deletes *destination* files until they match the filtered source. It does **not** produce ZIP snapshots, run scheduled jobs or directly upload to Google Drive. If the destination is watched by Google Drive Desktop, that separate application handles cloud synchronization.
 
@@ -9,6 +9,7 @@
 - Separate agent-compatible `RepoSyncCLI.exe` and `reposync.cmd` wrapper. Read-only operations can return JSON; destructive sync requires explicit confirmation/authorization.
 - Bundled **MANUAL.md** with user instructions and **skills/reposync/SKILL.md** with an agent-use contract and CLI reference.
 - SHA-256 local verification; protection against source/target nesting, unmanaged targets and link/junction traversal. Drive transient upload/download directories are ignored in the local destination.
+- Read-only-safe destination updates: if a destination file or folder is marked read-only on Windows (for example by Google Drive for desktop), RepoSync clears that attribute on the exact item it is about to update or delete, immediately before doing so, and never touches the source folder.
 
 ## Windows user guide
 
@@ -30,9 +31,9 @@ To install the optional reusable agent skill, see `skills/reposync/SKILL.md` and
 
 ## Build and release
 
-Build from the Windows distribution kit with `Build-RepoSync-Installer.ps1` (Python 3.12, PyInstaller, pywebview, Inno Setup). The installed GUI requires Microsoft Edge WebView2 Runtime. Run local tests first, then verify native WebView2, folder picker, **all eight window resize directions (especially bottom-right)**, maximize/restore, profile persistence, preview, sync, verify and uninstallation using disposable data. Recheck dependency licensing notices before redistribution; the earlier v0.2.3 kit flagged a missing authoritative `proxy_tools` notice. The installer is unsigned until signed separately.
+Build from the Windows distribution kit with `Build-RepoSync-Installer.ps1` (Python 3.12, PyInstaller, pywebview, Inno Setup). The installed GUI requires Microsoft Edge WebView2 Runtime. Run local tests first, then verify native WebView2, folder picker, **all eight window resize directions (especially bottom-right)**, maximize/restore, profile persistence, preview, sync, verify and uninstallation using disposable data. The redistribution notice set is generated at build time from the installed dependency inventory; the upstream `proxy_tools` 0.1.0 BSD license text is bundled verbatim because that wheel ships license metadata but no LICENSE file. The installer is unsigned until signed separately.
 
-The core mirroring engine is unchanged from v0.2.3 except for the version constant; there is **no automatic sync**.
+The core mirroring engine changed in v0.2.7 only for read-only destination handling; apart from that and the version constant it is unchanged since v0.2.3. There is **no automatic sync**.
 
 ### v0.2.6 GUI improvements
 
@@ -47,3 +48,23 @@ The core mirroring engine is unchanged from v0.2.3 except for the version consta
 - **Delete profile** removes only the selected saved profile entry after an explicit confirmation. It does not delete or alter the source folder, destination folder, or the files within either one. This confirmation cannot be disabled using *Confirm each sync*.
 - **Resize the window** by dragging any outer edge or corner. The custom frameless window uses native Windows pointer tracking. If resizing fails, leave the application running and check `%LOCALAPPDATA%\RepoSync\logs\webview-bridge.log`; report which edge/corner, Windows DPI scaling, and whether the window was maximized.
 - The agent CLI and mirroring engine remain unchanged except for the version identifier.
+
+### v0.2.7 changes
+
+- **Read-only destination items are handled safely on Windows.** If a destination
+  file or folder is marked read-only (for example by Google Drive for desktop),
+  RepoSync clears that attribute on the exact item it is about to update or
+  delete, immediately before doing so. The source folder is never modified, a
+  read-only source file is still mirrored as a read-only file, and such a mirror
+  file can still be updated or removed by a later sync. A deletion that fails
+  for any other reason still stops the sync with the exact path, states that
+  the mirror is not fully verified, and asks you to preview again before
+  retrying. See [MANUAL.md](MANUAL.md) for the user-facing details.
+- GUI, profiles, filters, presets and the Drive transient-directory rules are
+  unchanged from v0.2.6.
+- **The agent CLI wrapper now ships from source.** `reposync.cmd` is part of
+  the source distribution and is copied into the build output, so the shipped
+  wrapper can no longer drift from the CLI it wraps.
+- **Third-party notices are complete.** The build audit now verifies the
+  pinned upstream `proxy_tools` 0.1.0 BSD text and fails the build if it is
+  missing or altered.

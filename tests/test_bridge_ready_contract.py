@@ -16,7 +16,7 @@ def test_native_window_is_private_in_bridge():
 
 
 def test_ready_listener_is_attached_to_window_and_actions_start_disabled():
-    s = (Path(__file__).resolve().parents[1] / 'source' / 'ui' / 'index.html').read_text()
+    s = (Path(__file__).resolve().parents[1] / 'source' / 'ui' / 'index.html').read_text(encoding='utf-8')
     assert "window.addEventListener('pywebviewready',startup)" in s
     assert "document.addEventListener('pywebviewready'" not in s
     assert "function bridgeAvailable()" in s

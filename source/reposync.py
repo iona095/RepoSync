@@ -8,8 +8,10 @@ from __future__ import annotations
 import argparse
 import contextlib
 import datetime as dt
+import errno
 import fnmatch
 import hashlib
+import inspect
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -18,9 +20,10 @@ import stat
 import subprocess
 import sys
 import tempfile
+import time
 import uuid
 
-VERSION = "0.2.6"
+VERSION = "0.2.7"
 META_DIR = ".reposync"
 PROFILES_FILE = "profiles.json"
 DEFAULT_EXCLUDE = [
@@ -87,10 +90,12 @@ def atomic_json(path, data):
     tmp = path.with_name(path.name + "." + uuid.uuid4().hex + ".tmp")
     try:
         tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-        os.replace(tmp, path)
+        # The existing marker file can be read-only on Windows; unlock it just
+        # in time for the replace instead of forcing the write.
+        unlock_and_retry(path, os.replace, tmp, path)
     finally:
-        if tmp.exists():
-            tmp.unlink()
+        # Cleanup must never mask the error that is already on its way out.
+        discard_temp(tmp)
 
 
 def save_profiles(profiles):
@@ -159,6 +164,166 @@ def should_exclude(rel, patterns):
 
 def should_include(rel, include_patterns):
     return not include_patterns or any(matches(rel, pattern) for pattern in include_patterns)
+
+
+# ---------------------------------------------------------------------------
+# Windows read-only attribute handling.
+#
+# Windows refuses to remove or overwrite a path that carries the read-only
+# attribute, and an external tool (Google Drive for desktop) marks the whole
+# destination tree read-only. RepoSync therefore clears that attribute on the
+# exact path it is about to mutate, immediately before mutating it. It never
+# sweeps the tree and never unlocks anything it is not about to change.
+# On POSIX every helper below changes nothing.
+# ---------------------------------------------------------------------------
+FILE_ATTRIBUTE_READONLY = getattr(stat, "FILE_ATTRIBUTE_READONLY", 0x1)
+PERMISSION_ERRNOS = frozenset({errno.EACCES, errno.EPERM})
+DIRECTORY_NOT_EMPTY_ERRNOS = frozenset({errno.ENOTEMPTY})
+WINERROR_ACCESS_DENIED = 5
+WINERROR_DIR_NOT_EMPTY = 145
+UNLOCK_ATTEMPTS = 3
+UNLOCK_RETRY_DELAY = 0.1
+
+
+def is_readonly(path):
+    """True when path currently carries the Windows read-only attribute."""
+    try:
+        st = os.stat(path)
+    except OSError:
+        return False
+    return bool(getattr(st, "st_file_attributes", 0) & FILE_ATTRIBUTE_READONLY)
+
+
+def clear_readonly(path):
+    """Clear the read-only attribute on path. No-op on POSIX; a missing path is tolerated."""
+    if os.name != "nt":
+        return False
+    try:
+        # A link carries the attribute of its own entry, never of its target.
+        if is_link(Path(path)):
+            return False
+    except (OSError, ValueError):
+        return False
+    try:
+        os.chmod(path, stat.S_IWRITE)
+    except OSError:
+        return False
+    return True
+
+
+def is_permission_error(exc):
+    """True for access-denied style errors.
+
+    A directory that is not empty is NEVER a permission problem: it holds
+    genuine content, so the sync has to stop instead of forcing a delete.
+    A permission classification may only lead to clearing the read-only
+    attribute of the exact path and retrying the very same operation.
+    """
+    if exc.errno in DIRECTORY_NOT_EMPTY_ERRNOS:
+        return False
+    winerror = getattr(exc, "winerror", None)
+    if winerror == WINERROR_DIR_NOT_EMPTY:
+        return False
+    if winerror == WINERROR_ACCESS_DENIED:
+        return True
+    return exc.errno in PERMISSION_ERRNOS
+
+
+def unlock_and_retry(path, operation, *args, **kwargs):
+    """Run operation on path. If Windows refuses because path is read-only, clear
+    the attribute on this exact path and retry a bounded number of times. The last
+    error is re-raised unchanged, so the caller still sees the real failure."""
+    for attempt in range(1, UNLOCK_ATTEMPTS + 1):
+        try:
+            return operation(*args, **kwargs)
+        except OSError as exc:
+            # A genuine lock, or a directory that is not empty, is not the
+            # read-only problem: stop at once instead of escalating.
+            if not is_permission_error(exc) or not is_readonly(path):
+                raise
+            if attempt >= UNLOCK_ATTEMPTS:
+                raise
+            clear_readonly(path)
+            # Drive re-applies the attribute asynchronously, so retry right away
+            # and only wait when the bit is back again.
+            if is_readonly(path):
+                time.sleep(UNLOCK_RETRY_DELAY)
+
+
+def rmtree_unlock_handler(func, path, excinfo):
+    """shutil.rmtree error handler: unlock the exact failing path and retry it, bounded."""
+    exc = excinfo
+    if isinstance(excinfo, tuple):
+        # Python <=3.11 calls onerror with (func, path, sys.exc_info()).
+        candidate = excinfo[2] if len(excinfo) == 3 else None
+        exc = candidate[1] if isinstance(candidate, tuple) else candidate
+    if not isinstance(exc, BaseException):
+        return
+    if not isinstance(exc, OSError) or not is_permission_error(exc) or not is_readonly(path):
+        raise exc
+    # Only unlink and rmdir may be repeated; any other callable (os.scandir in
+    # CPython 3.12) is not retried and the original error stands.
+    if func not in (os.unlink, os.rmdir):
+        raise exc
+    clear_readonly(path)
+    for attempt in range(1, UNLOCK_ATTEMPTS + 1):
+        try:
+            return func(path)
+        except OSError:
+            if attempt >= UNLOCK_ATTEMPTS:
+                raise exc
+            clear_readonly(path)
+            if is_readonly(path):
+                time.sleep(UNLOCK_RETRY_DELAY)
+
+
+def find_destination_managed_entry(root):
+    """Return the name of the first Google Drive managed entry inside root, else None.
+
+    The whole subtree is inspected at every depth, because a managed scratch
+    path must never be removed, not even as part of a larger tree.
+    """
+    def fail(error):
+        raise RepoSyncError(f"Cannot inspect destination subtree before removal: {error}")
+    if is_destination_managed_path(Path(root).name):
+        return Path(root).name
+    for folder, child_dirs, filenames in os.walk(str(root), topdown=True, followlinks=False, onerror=fail):
+        for name in child_dirs:
+            if is_destination_managed_path(name):
+                return name
+        for name in filenames:
+            if is_destination_managed_path(name):
+                return name
+    return None
+
+
+def remove_tree(path, rel=None):
+    """Remove a directory tree, unlocking read-only entries on Windows only."""
+    label = rel if rel is not None else Path(path).name
+    # Checked before anything is deleted: a Drive managed path is never ours.
+    managed = find_destination_managed_entry(path)
+    if managed is not None:
+        raise RepoSyncError(f"Refusing to remove obsolete destination {label}: it contains "
+                            f"a Google Drive managed path '{managed}'. RepoSync never removes "
+                            "Drive managed content. mirror is not fully verified. "
+                            "Stop and preview before retrying.")
+    # Python 3.12 renamed onerror= to onexc=; onerror is deprecated there but still exists in 3.14.
+    if "onexc" in inspect.signature(shutil.rmtree).parameters:
+        shutil.rmtree(path, onexc=rmtree_unlock_handler)
+    else:
+        shutil.rmtree(path, onerror=rmtree_unlock_handler)
+
+
+def discard_temp(path):
+    """Delete a temporary file without masking an error that is already being raised."""
+    in_flight = sys.exc_info()[0] is not None
+    if path.exists():
+        clear_readonly(path)
+    try:
+        path.unlink(missing_ok=True)
+    except OSError:
+        if not in_flight:
+            raise
 
 
 def scan_tree(root, *, exclude=(), include=(), source=True):
@@ -393,10 +558,16 @@ def sync(profile, *, yes=False, adopt=False):
             target = destination / rel
             if is_link(target):
                 raise RepoSyncError(f"Unsafe destination link: {rel}")
-            if target.is_dir():
-                shutil.rmtree(target)
-            elif target.exists():
-                target.unlink()
+            try:
+                if target.is_dir():
+                    remove_tree(target, rel)
+                elif target.exists():
+                    unlock_and_retry(target, target.unlink)
+            except OSError as exc:
+                raise RepoSyncError(f"Could not replace obsolete destination {rel}: {exc}. "
+                                    "It may still carry a read-only attribute, or another process "
+                                    "may hold it open; mirror is not fully verified. "
+                                    "Stop and preview before retrying.") from exc
         for rel in p["all_source_dirs"]:
             target = destination / rel
             if target.exists() and not target.is_dir():
@@ -410,9 +581,15 @@ def sync(profile, *, yes=False, adopt=False):
                 shutil.copy2(source_file, tmp)
                 if hash_file(source_file) != hash_file(tmp):
                     raise RepoSyncError(f"Source file changed during copy or checksum mismatch: {rel}")
-                os.replace(tmp, target)
+                # The stale destination file can be read-only; unlock it just in time.
+                # The transfer file keeps the source's read-only bit, so the mirrored
+                # copy stays exactly as read-only as the source.
+                unlock_and_retry(target, os.replace, tmp, target)
             finally:
-                tmp.unlink(missing_ok=True)
+                # The transfer file inherited the source's read-only bit, so it has to
+                # be unlocked before it can be deleted. Cleanup must never mask the
+                # error that is already on its way out.
+                discard_temp(tmp)
         # Reject a changing source BEFORE the normal delete phase.
         fresh = plan(profile)
         if fresh["all_source_file_stats"] != p["all_source_file_stats"] or fresh["all_source_dirs"] != p["all_source_dirs"]:
@@ -423,7 +600,13 @@ def sync(profile, *, yes=False, adopt=False):
             if is_link(target):
                 raise RepoSyncError(f"Unsafe destination link: {rel}")
             if target.is_file():
-                target.unlink()
+                try:
+                    unlock_and_retry(target, target.unlink)
+                except OSError as exc:
+                    raise RepoSyncError(f"Could not remove obsolete destination file {rel}: {exc}. "
+                                        "The file may still carry a read-only attribute, or another process "
+                                        "may hold it open; mirror is not fully verified. "
+                                        "Stop and preview before retrying.") from exc
         for rel in fresh["delete_dirs"]:
             target = destination / rel
             if is_link(target):
@@ -431,10 +614,11 @@ def sync(profile, *, yes=False, adopt=False):
             if target.is_dir():
                 # Child dirs can contain obsolete files; safe because all were indexed.
                 try:
-                    target.rmdir()
+                    unlock_and_retry(target, target.rmdir)
                 except OSError as exc:
                     raise RepoSyncError(f"Could not remove obsolete destination directory {rel}: {exc}. "
-                                        "A concurrent process may have created content or retained an open handle; "
+                                        "The directory may still carry a read-only attribute, or a concurrent "
+                                        "process may have created content or retained an open handle; "
                                         "mirror is not fully verified. Stop and preview before retrying.") from exc
         result = verify(profile)
         if not result["ok"]:

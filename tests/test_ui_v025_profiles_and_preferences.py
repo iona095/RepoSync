@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 import pytest
 sys.path.insert(0,str(Path(__file__).resolve().parents[1] / 'source'))
-from reposync import RepoSyncError
+from reposync import RepoSyncError, VERSION
 from reposync_gui import DesktopAPI, make_html
 
 
@@ -59,7 +59,7 @@ def test_html_has_visible_scroll_count_and_confirmation_is_independent():
     assert "if(preferences.confirm_sync&&!confirm(desc))return" in html
     assert "summary.owner==='unmanaged-populated'&&!confirm(" in html
     assert "api('get_preferences')" in html and "api('set_preferences'" in html
-    assert 'v0.2.6' in html
+    assert f'v{VERSION}' in html
 
 
 def test_disabling_ui_confirm_does_not_bypass_native_confirmation(tmp_path,monkeypatch):
